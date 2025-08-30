@@ -1,0 +1,57 @@
+# docker-compose.dev.yml
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_FLASK_SERVICE_URL=http://localhost:5000
+      - NEXT_PUBLIC_NODE_SERVICE_URL=http://localhost:3001
+      - NEXT_PUBLIC_WEBSOCKET_URL=ws://localhost:3001
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: npm run dev
+
+  flask-service:
+    build:
+      context: ./backend/flask-service
+      dockerfile: Dockerfile.dev
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+      - FLASK_DEBUG=1
+    volumes:
+      - ./backend/flask-service:/app
+      - ./data:/app/data
+    command: python run.py
+
+  node-service:
+    build:
+      context: ./backend/node-service
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=development
+    volumes:
+      - ./backend/node-service:/app
+      - /app/node_modules
+      - ./data:/app/data
+    command: npm run dev
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+networks:
+  default:
+    name: dashboard-dev-network
