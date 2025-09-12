@@ -1,0 +1,602 @@
+version: '3.9'
+
+services:
+  # API Gateway - Kong
+  kong-database:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: kong
+      POSTGRES_PASSWORD: kongpass
+      POSTGRES_DB: kong
+    volumes:
+      - kong_data:/var/lib/postgresql/data
+    networks:
+      - saas_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kong"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kong-migration:
+    image: kong:3.4
+    command: kong migrations bootstrap
+    depends_on:
+      kong-database:
+        condition: service_healthy
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kongpass
+    networks:
+      - saas_network
+
+  kong:
+    image: kong:3.4
+    depends_on:
+      kong-migration:
+        condition: service_completed_successfully
+    environment:
+      KONG_DATABASE: postgres
+      KONG_PG_HOST: kong-database
+      KONG_PG_USER: kong
+      KONG_PG_PASSWORD: kongpass
+      KONG_PROXY_ACCESS_LOG: /dev/stdout
+      KONG_ADMIN_ACCESS_LOG: /dev/stdout
+      KONG_PROXY_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_ERROR_LOG: /dev/stderr
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    ports:
+      - "8000:8000"  # Proxy
+      - "8443:8443"  # Proxy SSL
+      - "8001:8001"  # Admin API
+      - "8444:8444"  # Admin API SSL
+    networks:
+      - saas_network
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # User Management Service - Django
+  user-management-db:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: userdb
+      POSTGRES_PASSWORD: userpass
+      POSTGRES_DB: user_management
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    networks:
+      - saas_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U userdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  user-management:
+    build:
+      context: ./services/user-management
+      dockerfile: Dockerfile
+    depends_on:
+      user-management-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://userdb:userpass@user-management-db:5432/user_management
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SECRET_KEY: dev-secret-key-change-in-production
+      DEBUG: "true"
+      ALLOWED_HOSTS: "*"
+    ports:
+      - "8010:8000"
+    volumes:
+      - ./services/user-management:/app
+    networks:
+      - saas_network
+    command: python manage.py runserver 0.0.0.0:8000
+
+  # Inventory Management Service - Spring Boot
+  inventory-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: inventory
+      MYSQL_USER: inventorydb
+      MYSQL_PASSWORD: inventorypass
+    volumes:
+      - inventory_db_data:/var/lib/mysql
+    networks:
+      - saas_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  inventory-management:
+    build:
+      context: ./services/inventory-management
+      dockerfile: Dockerfile
+    depends_on:
+      inventory-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://inventory-db:3306/inventory
+      SPRING_DATASOURCE_USERNAME: inventorydb
+      SPRING_DATASOURCE_PASSWORD: inventorypass
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_PROFILES_ACTIVE: dev
+    ports:
+      - "8020:8080"
+    volumes:
+      - ./services/inventory-management:/app
+    networks:
+      - saas_network
+
+  # Financial Analytics Service - Flask
+  financial-db:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: financedb
+      POSTGRES_PASSWORD: financepass
+      POSTGRES_DB: financial_analytics
+    volumes:
+      - finance_db_data:/var/lib/postgresql/data
+    networks:
+      - saas_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U financedb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  financial-analytics:
+    build:
+      context: ./services/financial-analytics
+      dockerfile: Dockerfile
+    depends_on:
+      financial-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://financedb:financepass@financial-db:5432/financial_analytics
+      REDIS_URL: redis://redis:6379/1
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      FLASK_ENV: development
+      FLASK_DEBUG: "true"
+    ports:
+      - "8030:5000"
+    volumes:
+      - ./services/financial-analytics:/app
+    networks:
+      - saas_network
+
+  # Document Management Service - ASP.NET Core
+  document-db:
+    image: mongo:6.0
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: docdb
+      MONGO_INITDB_ROOT_PASSWORD: docpass
+      MONGO_INITDB_DATABASE: documents
+    volumes:
+      - document_db_data:/data/db
+    networks:
+      - saas_network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  document-management:
+    build:
+      context: ./services/document-management
+      dockerfile: Dockerfile
+    depends_on:
+      document-db:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__DocumentDB: mongodb://docdb:docpass@document-db:27017/documents
+      Kafka__BootstrapServers: kafka:9092
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: http://+:80
+    ports:
+      - "8040:80"
+    volumes:
+      - ./services/document-management:/app
+    networks:
+      - saas_network
+
+  # Communication Hub Service - Phoenix/Elixir
+  communication-hub:
+    build:
+      context: ./services/communication-hub
+      dockerfile: Dockerfile
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      PHX_HOST: localhost
+      DATABASE_URL: ecto://postgres:postgres@postgres:5432/communication_hub
+      REDIS_URL: redis://redis:6379/2
+      KAFKA_BROKERS: kafka:9092
+      SECRET_KEY_BASE: dev-secret-key-base-change-in-production
+      MIX_ENV: dev
+    ports:
+      - "8050:4000"
+    volumes:
+      - ./services/communication-hub:/app
+    networks:
+      - saas_network
+
+  # Audit Logging Service - Rocket/Rust
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8
+    environment:
+      CLICKHOUSE_DB: audit_logs
+      CLICKHOUSE_USER: audituser
+      CLICKHOUSE_PASSWORD: auditpass
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    networks:
+      - saas_network
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  audit-logging:
+    build:
+      context: ./services/audit-logging
+      dockerfile: Dockerfile
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: audituser
+      CLICKHOUSE_PASSWORD: auditpass
+      KAFKA_BROKERS: kafka:9092
+      RUST_LOG: debug
+      ROCKET_ADDRESS: 0.0.0.0
+      ROCKET_PORT: 8060
+    ports:
+      - "8060:8060"
+    volumes:
+      - ./services/audit-logging:/app
+    networks:
+      - saas_network
+
+  # Workflow Engine Service - Ruby on Rails
+  workflow-db:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: workflowdb
+      POSTGRES_PASSWORD: workflowpass
+      POSTGRES_DB: workflow_engine
+    volumes:
+      - workflow_db_data:/var/lib/postgresql/data
+    networks:
+      - saas_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workflowdb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  workflow-engine:
+    build:
+      context: ./services/workflow-engine
+      dockerfile: Dockerfile
+    depends_on:
+      workflow-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://workflowdb:workflowpass@workflow-db:5432/workflow_engine
+      REDIS_URL: redis://redis:6379/3
+      KAFKA_BROKERS: kafka:9092
+      RAILS_ENV: development
+      SECRET_KEY_BASE: dev-secret-key-base-change-in-production
+    ports:
+      - "8070:3000"
+    volumes:
+      - ./services/workflow-engine:/app
+    networks:
+      - saas_network
+    command: rails server -b 0.0.0.0
+
+  # Reporting Service - Laravel/PHP
+  reporting-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: reporting
+      MYSQL_USER: reportdb
+      MYSQL_PASSWORD: reportpass
+    volumes:
+      - reporting_db_data:/var/lib/mysql
+    networks:
+      - saas_network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  reporting-service:
+    build:
+      context: ./services/reporting-service
+      dockerfile: Dockerfile
+    depends_on:
+      reporting-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: reporting-db
+      DB_PORT: 3306
+      DB_DATABASE: reporting
+      DB_USERNAME: reportdb
+      DB_PASSWORD: reportpass
+      REDIS_HOST: redis
+      KAFKA_BROKERS: kafka:9092
+      APP_ENV: local
+      APP_DEBUG: "true"
+      APP_KEY: base64:dev-app-key-change-in-production==
+    ports:
+      - "8080:80"
+    volumes:
+      - ./services/reporting-service:/var/www/html
+    networks:
+      - saas_network
+
+  # Notification Service - CakePHP
+  notification-service:
+    build:
+      context: ./services/notification-service
+      dockerfile: Dockerfile
+    depends_on:
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: mysql://reportdb:reportpass@reporting-db:3306/notifications
+      REDIS_URL: redis://redis:6379/4
+      KAFKA_BROKERS: kafka:9092
+      DEBUG: "true"
+      SECURITY_SALT: dev-security-salt-change-in-production
+    ports:
+      - "8090:80"
+    volumes:
+      - ./services/notification-service:/var/www/html
+    networks:
+      - saas_network
+
+  # Integration Hub Service - Play/Scala
+  cassandra:
+    image: cassandra:4.1
+    environment:
+      CASSANDRA_CLUSTER_NAME: SaaSCluster
+      CASSANDRA_DC: DC1
+      CASSANDRA_ENDPOINT_SNITCH: GossipingPropertyFileSnitch
+    volumes:
+      - cassandra_data:/var/lib/cassandra
+    ports:
+      - "9042:9042"
+    networks:
+      - saas_network
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'SELECT now() FROM system.local'"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  integration-hub:
+    build:
+      context: ./services/integration-hub
+      dockerfile: Dockerfile
+    depends_on:
+      cassandra:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    environment:
+      CASSANDRA_HOSTS: cassandra:9042
+      KAFKA_BROKERS: kafka:9092
+      PLAY_HTTP_SECRET_KEY: dev-play-secret-key-change-in-production
+      JAVA_OPTS: -Xmx1024m -Xms512m
+    ports:
+      - "8100:9000"
+    volumes:
+      - ./services/integration-hub:/app
+    networks:
+      - saas_network
+
+  # Shared Infrastructure Services
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - saas_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.4.0
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - saas_network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    ports:
+      - "9092:9092"
+    networks:
+      - saas_network
+    healthcheck:
+      test: ["CMD", "kafka-broker-api-versions", "--bootstrap-server", "localhost:9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    volumes:
+      - ./infrastructure/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - "9090:9090"
+    networks:
+      - saas_network
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    depends_on:
+      - prometheus
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_INSTALL_PLUGINS: redis-datasource
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infrastructure/monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infrastructure/monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    ports:
+      - "3000:3000"
+    networks:
+      - saas_network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.9.0
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - saas_network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.9.0
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    networks:
+      - saas_network
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.47
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+    ports:
+      - "5775:5775/udp"
+      - "6831:6831/udp"
+      - "6832:6832/udp"
+      - "5778:5778"
+      - "16686:16686"
+      - "14250:14250"
+      - "14268:14268"
+      - "14269:14269"
+      - "4317:4317"
+      - "4318:4318"
+      - "9411:9411"
+    networks:
+      - saas_network
+
+networks:
+  saas_network:
+    driver: bridge
+
+volumes:
+  kong_data:
+  user_db_data:
+  inventory_db_data:
+  finance_db_data:
+  document_db_data:
+  workflow_db_data:
+  reporting_db_data:
+  clickhouse_data:
+  cassandra_data:
+  redis_data:
+  zookeeper_data:
+  zookeeper_logs:
+  kafka_data:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:
