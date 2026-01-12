@@ -1,6 +1,6 @@
 // src/components/DataVisualization/ChartTypes.ts
 import * as d3 from 'd3';
-import type { VisualizationData, Dataset, DataPoint } from '@/types';
+import type { VisualizationData } from '@/types';
 
 export class ChartTypes {
   // Bar Chart
@@ -94,5 +94,49 @@ export class ChartTypes {
       .attr('dx', '-.8em')
       .attr('dy', '.15em')
       .attr('transform', 'rotate(-45)');
+  }
+  static renderLineChart(
+    _g: d3.Selection<SVGGElement, unknown, null, undefined>,
+    _data: VisualizationData,
+    _width: number,
+    _height: number
+  ): void {
+    console.warn('Line chart not implemented');
+  }
+
+  static renderScatterPlot(
+    _g: d3.Selection<SVGGElement, unknown, null, undefined>,
+    _data: VisualizationData,
+    _width: number,
+    _height: number
+  ): void {
+    console.warn('Scatter plot not implemented');
+  }
+
+  static renderHeatmap(
+    _g: d3.Selection<SVGGElement, unknown, null, undefined>,
+    _data: VisualizationData,
+    _width: number,
+    _height: number
+  ): void {
+    console.warn('Heatmap not implemented');
+  }
+
+  static renderPieChart(
+    _g: d3.Selection<SVGGElement, unknown, null, undefined>,
+    _data: VisualizationData,
+    _width: number,
+    _height: number
+  ): void {
+    console.warn('Pie chart not implemented');
+  }
+
+  static renderAreaChart(
+    _g: d3.Selection<SVGGElement, unknown, null, undefined>,
+    _data: VisualizationData,
+    _width: number,
+    _height: number
+  ): void {
+    console.warn('Area chart not implemented');
   }
 }

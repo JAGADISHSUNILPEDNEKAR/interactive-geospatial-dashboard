@@ -1,12 +1,11 @@
 // src/components/GeospatialMap/GeospatialMap.tsx
 import { useEffect, useRef, useState, useCallback } from 'react';
 import L from 'leaflet';
-import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { Box, Button, HStack, Select, useToast } from '@chakra-ui/react';
 import { ThreeOverlay } from './ThreeOverlay';
 import { useVisualizationSync } from '@/hooks';
-import type { MapConfig, Model3D, MarkerData } from '@/types';
+import type { Model3D, MarkerData } from '@/types';
 
 // Fix Leaflet default marker icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -148,22 +147,22 @@ export const GeospatialMap: React.FC<GeospatialMapProps> = ({
         model.url,
         (gltf) => {
           const object = gltf.scene;
-          
+
           // Convert lat/lng to Three.js coordinates
           const position = overlay.latLngToLayerPoint(
             model.coordinates.latitude,
             model.coordinates.longitude
           );
-          
+
           object.position.set(position.x, position.y, position.z || 0);
           object.scale.set(...model.scale);
-          
+
           if (model.rotation) {
             object.rotation.set(...model.rotation);
           }
 
           overlay.addObject(object);
-          
+
           toast({
             title: '3D Model Loaded',
             description: `${model.name} has been added to the map`,

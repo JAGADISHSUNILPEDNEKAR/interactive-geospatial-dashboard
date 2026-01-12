@@ -1,13 +1,7 @@
 // src/hooks/usePerformanceMonitoring.ts
 import { useEffect, useCallback } from 'react';
 
-interface PerformanceMetrics {
-  cls: number | null;
-  fid: number | null;
-  fcp: number | null;
-  lcp: number | null;
-  ttfb: number | null;
-}
+
 
 export const usePerformanceMonitoring = () => {
   const logMetric = useCallback((metric: any) => {
@@ -20,7 +14,7 @@ export const usePerformanceMonitoring = () => {
         body: JSON.stringify(metric),
       }).catch(console.error);
     }
-    
+
     // Log in development
     if (process.env.NODE_ENV === 'development') {
       console.log('Performance metric:', metric);
@@ -49,7 +43,7 @@ export const usePerformanceMonitoring = () => {
               entries: [navEntry],
             });
           }
-          
+
           if (entry.entryType === 'resource') {
             const resourceEntry = entry as PerformanceResourceTiming;
             if (resourceEntry.initiatorType === 'fetch' || resourceEntry.initiatorType === 'xmlhttprequest') {
@@ -73,6 +67,7 @@ export const usePerformanceMonitoring = () => {
         observer.disconnect();
       };
     }
+    return undefined;
   }, [logMetric]);
 
   // Memory monitoring (Chrome only)
@@ -97,6 +92,7 @@ export const usePerformanceMonitoring = () => {
       const interval = setInterval(checkMemory, 30000); // Check every 30 seconds
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [logMetric]);
 
   // FPS monitoring for animations
@@ -108,10 +104,10 @@ export const usePerformanceMonitoring = () => {
     const measureFPS = () => {
       frameCount++;
       const currentTime = performance.now();
-      
+
       if (currentTime >= lastTime + 1000) {
         const fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
-        
+
         if (fps < 30) {
           console.warn(`Low FPS detected: ${fps}`);
           logMetric({
@@ -120,11 +116,11 @@ export const usePerformanceMonitoring = () => {
             timestamp: currentTime,
           });
         }
-        
+
         frameCount = 0;
         lastTime = currentTime;
       }
-      
+
       animationId = requestAnimationFrame(measureFPS);
     };
 

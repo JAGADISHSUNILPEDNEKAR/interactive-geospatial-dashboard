@@ -15,11 +15,11 @@ export class ThreeOverlay extends L.Layer {
   constructor(map: L.Map) {
     super();
     this.map = map;
-    
+
     // Initialize Three.js scene
     this.scene = new THREE.Scene();
     this.scene.fog = new THREE.Fog(0xffffff, 1000, 10000);
-    
+
     // Initialize camera
     this.camera = new THREE.PerspectiveCamera(
       45,
@@ -27,14 +27,14 @@ export class ThreeOverlay extends L.Layer {
       0.1,
       10000
     );
-    
+
     // Add lights to scene
     this.setupLights();
   }
 
   onAdd(map: L.Map): this {
     this.map = map;
-    
+
     // Create canvas for Three.js
     this.canvas = document.createElement('canvas');
     this.canvas.style.position = 'absolute';
@@ -42,7 +42,7 @@ export class ThreeOverlay extends L.Layer {
     this.canvas.style.left = '0';
     this.canvas.style.pointerEvents = 'none';
     this.canvas.style.zIndex = '500';
-    
+
     // Create WebGL renderer
     this.renderer = new THREE.WebGLRenderer({
       canvas: this.canvas,
@@ -53,27 +53,27 @@ export class ThreeOverlay extends L.Layer {
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    
+
     // Add canvas to map container
     const mapContainer = map.getContainer();
     mapContainer.appendChild(this.canvas);
-    
+
     // Bind update events
     map.on('viewreset', this.update, this);
     map.on('move', this.update, this);
     map.on('moveend', this.update, this);
     map.on('zoom', this.update, this);
     map.on('zoomend', this.update, this);
-    
+
     // Handle window resize
     window.addEventListener('resize', this.handleResize.bind(this));
-    
+
     // Initial update
     this.update();
-    
+
     // Start animation loop
     this.animate();
-    
+
     return this;
   }
 
@@ -82,7 +82,7 @@ export class ThreeOverlay extends L.Layer {
     if (this.animationFrame) {
       cancelAnimationFrame(this.animationFrame);
     }
-    
+
     // Remove event listeners
     map.off('viewreset', this.update, this);
     map.off('move', this.update, this);
@@ -90,27 +90,27 @@ export class ThreeOverlay extends L.Layer {
     map.off('zoom', this.update, this);
     map.off('zoomend', this.update, this);
     window.removeEventListener('resize', this.handleResize.bind(this));
-    
+
     // Clean up Three.js
     if (this.renderer) {
       this.renderer.dispose();
       this.renderer = null;
     }
-    
+
     // Remove canvas
     if (this.canvas && this.canvas.parentNode) {
       this.canvas.parentNode.removeChild(this.canvas);
       this.canvas = null;
     }
-    
+
     // Clear objects
     this.objects.forEach(obj => {
       this.scene.remove(obj);
     });
     this.objects = [];
-    
+
     this.map = null;
-    
+
     return this;
   }
 
@@ -118,7 +118,7 @@ export class ThreeOverlay extends L.Layer {
     // Ambient light for overall illumination
     const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
     this.scene.add(ambientLight);
-    
+
     // Directional light for shadows
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
     directionalLight.position.set(100, 100, 50);
@@ -132,7 +132,7 @@ export class ThreeOverlay extends L.Layer {
     directionalLight.shadow.mapSize.width = 2048;
     directionalLight.shadow.mapSize.height = 2048;
     this.scene.add(directionalLight);
-    
+
     // Hemisphere light for sky/ground color
     const hemisphereLight = new THREE.HemisphereLight(0x87CEEB, 0x8B7355, 0.4);
     this.scene.add(hemisphereLight);
@@ -140,38 +140,37 @@ export class ThreeOverlay extends L.Layer {
 
   private update(): void {
     if (!this.map || !this.renderer || !this.canvas) return;
-    
+
     const mapSize = this.map.getSize();
     const mapBounds = this.map.getBounds();
     const zoom = this.map.getZoom();
-    
+
     // Update canvas size
     this.canvas.width = mapSize.x;
     this.canvas.height = mapSize.y;
     this.renderer.setSize(mapSize.x, mapSize.y);
-    
+
     // Update camera
     this.updateCamera(mapBounds, zoom);
-    
+
     // Update object positions
     this.updateObjectPositions();
-    
+
     // Render the scene
     this.render();
   }
 
-  private updateCamera(bounds: L.LatLngBounds, zoom: number): void {
+  private updateCamera(_bounds: L.LatLngBounds, zoom: number): void {
     if (!this.map) return;
-    
+
     // Calculate camera position based on map view
-    const center = bounds.getCenter();
     const scale = Math.pow(2, zoom);
-    
+
     // Set camera position
     const cameraHeight = 1000 / scale;
     this.camera.position.set(0, 0, cameraHeight);
     this.camera.lookAt(0, 0, 0);
-    
+
     // Update camera aspect ratio
     const mapSize = this.map.getSize();
     this.camera.aspect = mapSize.x / mapSize.y;
@@ -180,7 +179,7 @@ export class ThreeOverlay extends L.Layer {
 
   private updateObjectPositions(): void {
     if (!this.map) return;
-    
+
     // Update positions of all objects based on current map view
     this.objects.forEach(obj => {
       const userData = obj.userData;
@@ -193,16 +192,16 @@ export class ThreeOverlay extends L.Layer {
 
   private animate(): void {
     this.animationFrame = requestAnimationFrame(() => this.animate());
-    
+
     if (!this.isVisible) return;
-    
+
     // Animate objects
     this.objects.forEach(obj => {
       if (obj.userData.animate) {
         obj.rotation.y += 0.01;
       }
     });
-    
+
     this.render();
   }
 
@@ -217,15 +216,15 @@ export class ThreeOverlay extends L.Layer {
 
   public latLngToLayerPoint(lat: number, lng: number): THREE.Vector3 {
     if (!this.map) return new THREE.Vector3(0, 0, 0);
-    
+
     const point = this.map.latLngToLayerPoint(L.latLng(lat, lng));
     const mapSize = this.map.getSize();
-    
+
     // Convert to Three.js coordinates (centered)
     const x = point.x - mapSize.x / 2;
     const y = -(point.y - mapSize.y / 2); // Invert Y axis
     const z = 0;
-    
+
     return new THREE.Vector3(x, y, z);
   }
 
@@ -278,7 +277,7 @@ export class ThreeOverlay extends L.Layer {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.rotation.x = Math.PI;
-    
+
     return mesh;
   }
 
@@ -290,17 +289,17 @@ export class ThreeOverlay extends L.Layer {
   ): THREE.Line {
     const startPoint = this.latLngToLayerPoint(start.lat, start.lng);
     const endPoint = this.latLngToLayerPoint(end.lat, end.lng);
-    
+
     const geometry = new THREE.BufferGeometry().setFromPoints([
       startPoint,
       endPoint,
     ]);
-    
+
     const material = new THREE.LineBasicMaterial({
       color,
       linewidth: 2,
     });
-    
+
     return new THREE.Line(geometry, material);
   }
 }

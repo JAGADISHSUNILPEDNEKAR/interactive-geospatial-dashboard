@@ -1,7 +1,7 @@
 // src/app/dashboard/page.tsx
 'use client';
 
-import { Suspense, lazy } from 'react';
+import { Suspense } from 'react';
 import {
   Box,
   Grid,
@@ -9,7 +9,6 @@ import {
   Heading,
   Spinner,
   VStack,
-  HStack,
   useColorModeValue,
 } from '@chakra-ui/react';
 import { Header, Sidebar } from '@/components/Layout';
@@ -18,7 +17,7 @@ import dynamic from 'next/dynamic';
 // Dynamic imports for heavy components
 const GeospatialMap = dynamic(
   () => import('@/components/GeospatialMap').then(mod => mod.GeospatialMap),
-  { 
+  {
     ssr: false,
     loading: () => <Spinner size="xl" />
   }
@@ -26,7 +25,7 @@ const GeospatialMap = dynamic(
 
 const DataVisualization = dynamic(
   () => import('@/components/DataVisualization').then(mod => mod.DataVisualization),
-  { 
+  {
     ssr: false,
     loading: () => <Spinner size="lg" />
   }
@@ -34,7 +33,7 @@ const DataVisualization = dynamic(
 
 const RealTimeMonitor = dynamic(
   () => import('@/components/RealTimeMonitor').then(mod => mod.RealTimeMonitor),
-  { 
+  {
     ssr: false,
     loading: () => <Spinner size="md" />
   }

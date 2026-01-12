@@ -10,7 +10,6 @@ import {
   Spinner,
   Text,
   useToast,
-  IconButton,
   Menu,
   MenuButton,
   MenuList,
@@ -19,7 +18,7 @@ import {
 import { ChartTypes } from './ChartTypes';
 import { useWebSocket } from '@/hooks';
 import { api } from '@/services';
-import type { ChartType, VisualizationData, Dataset } from '@/types';
+import type { ChartType, VisualizationData } from '@/types';
 
 interface DataVisualizationProps {
   dataEndpoint: string;
@@ -53,14 +52,14 @@ export const DataVisualization: React.FC<DataVisualizationProps> = ({
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.getVisualizationData(dataEndpoint);
+      const response = await api.getVisualizationData(dataEndpoint) as any;
       setData(response.data);
-      
+
       // If response includes Seaborn plot
       if (response.statistical_plot) {
         setSeabornPlot(response.statistical_plot);
       }
-      
+
       toast({
         title: 'Data Updated',
         status: 'success',
@@ -164,7 +163,7 @@ export const DataVisualization: React.FC<DataVisualizationProps> = ({
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       const img = new Image();
-      
+
       img.onload = () => {
         canvas.width = img.width;
         canvas.height = img.height;
@@ -180,7 +179,7 @@ export const DataVisualization: React.FC<DataVisualizationProps> = ({
           }
         });
       };
-      
+
       img.src = 'data:image/svg+xml;base64,' + btoa(svgData);
     }
   }, []);
@@ -202,11 +201,11 @@ export const DataVisualization: React.FC<DataVisualizationProps> = ({
           <option value="pie">Pie Chart</option>
           <option value="area">Area Chart</option>
         </Select>
-        
+
         <Button size="sm" onClick={fetchData} isLoading={loading}>
           Refresh
         </Button>
-        
+
         <Menu>
           <MenuButton as={Button} size="sm">
             Export
@@ -216,7 +215,7 @@ export const DataVisualization: React.FC<DataVisualizationProps> = ({
             <MenuItem onClick={() => exportChart('svg')}>Export as SVG</MenuItem>
           </MenuList>
         </Menu>
-        
+
         {realTime && (
           <Text fontSize="sm" color={isConnected ? 'green.500' : 'red.500'}>
             {isConnected ? '● Live' : '○ Disconnected'}
@@ -247,7 +246,7 @@ export const DataVisualization: React.FC<DataVisualizationProps> = ({
                 margin: '0 auto',
               }}
             />
-            
+
             {/* Seaborn Plot (if available) */}
             {seabornPlot && (
               <Box

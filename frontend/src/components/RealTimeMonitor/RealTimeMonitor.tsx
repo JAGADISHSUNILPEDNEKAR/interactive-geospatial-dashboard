@@ -33,7 +33,7 @@ export const RealTimeMonitor: React.FC = () => {
   const [dataStream, setDataStream] = useState<RealTimeDataStream[]>([]);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting');
   const streamRef = useRef<HTMLDivElement>(null);
-  
+
   const bgColor = useColorModeValue('gray.50', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.600');
 
@@ -44,7 +44,7 @@ export const RealTimeMonitor: React.FC = () => {
   useEffect(() => {
     if (!isConnected) {
       const eventSource = new EventSource('/api/node/stream/realtime');
-      
+
       eventSource.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
@@ -62,6 +62,7 @@ export const RealTimeMonitor: React.FC = () => {
         eventSource.close();
       };
     }
+    return undefined;
   }, [isConnected]);
 
   // Update connection status
@@ -189,9 +190,9 @@ export const RealTimeMonitor: React.FC = () => {
       <HStack justify="space-between">
         <Text fontWeight="bold">Real-Time Monitor</Text>
         <Badge colorScheme={getStatusColor()}>
-          {connectionStatus === 'connected' ? '● Connected' : 
-           connectionStatus === 'connecting' ? '◐ Connecting...' : 
-           '○ Disconnected'}
+          {connectionStatus === 'connected' ? '● Connected' :
+            connectionStatus === 'connecting' ? '◐ Connecting...' :
+              '○ Disconnected'}
         </Badge>
       </HStack>
 
@@ -257,7 +258,7 @@ export const RealTimeMonitor: React.FC = () => {
                 >
                   <Badge size="xs" colorScheme={
                     item.type === 'alert' ? 'red' :
-                    item.type === 'analytics' ? 'blue' : 'green'
+                      item.type === 'analytics' ? 'blue' : 'green'
                   }>
                     {item.type}
                   </Badge>

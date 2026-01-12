@@ -1,6 +1,6 @@
 // src/types/geospatial.ts
 import type { LatLngExpression, LatLngBounds } from 'leaflet';
-import type { Object3D } from 'three';
+
 
 export interface Coordinates {
   latitude: number;

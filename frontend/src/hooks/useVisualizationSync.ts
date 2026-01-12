@@ -18,9 +18,9 @@ export const useVisualizationSync = () => {
 
     // Update Three.js objects based on map bounds
     if (threeScene && mapInstance) {
-      const center = bounds.getCenter();
+
       const zoom = mapInstance.getZoom();
-      
+
       // Update camera position based on map view
       threeScene.traverse((child) => {
         if (child instanceof THREE.Camera) {
@@ -42,13 +42,13 @@ export const useVisualizationSync = () => {
       });
 
       // Update D3 visualizations
-      d3Container.dispatch('dataUpdate', { detail: filteredData });
+      d3Container.dispatch('dataUpdate', { detail: filteredData } as any);
     }
   }, [mapInstance, threeScene, d3Container]);
 
   const registerSyncCallback = useCallback((callback: (bounds: LatLngBounds, data: any[]) => void) => {
     syncCallbacksRef.current.add(callback);
-    
+
     return () => {
       syncCallbacksRef.current.delete(callback);
     };
