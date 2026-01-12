@@ -92,5 +92,3 @@ networks:
 
 volumes:
   redis-data:
-
----
