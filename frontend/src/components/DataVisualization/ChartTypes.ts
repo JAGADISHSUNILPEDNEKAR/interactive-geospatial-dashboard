@@ -47,12 +47,12 @@ export class ChartTypes {
 
     // Add interactivity
     bars
-      .on('mouseover', function(event, d) {
+      .on('mouseover', function (event, d) {
         d3.select(this)
           .transition()
           .duration(200)
           .attr('fill', '#2B6CB0');
-        
+
         // Show tooltip
         const tooltip = d3
           .select('body')
@@ -76,12 +76,12 @@ export class ChartTypes {
           .style('left', event.pageX + 10 + 'px')
           .style('top', event.pageY - 28 + 'px');
       })
-      .on('mouseout', function() {
+      .on('mouseout', function () {
         d3.select(this)
           .transition()
           .duration(200)
           .attr('fill', dataset.color || '#4299E1');
-        
+
         d3.selectAll('.chart-tooltip').remove();
       });
 
@@ -93,4 +93,6 @@ export class ChartTypes {
       .style('text-anchor', 'end')
       .attr('dx', '-.8em')
       .attr('dy', '.15em')
-      .attr('transform', 'rotate(-45)')
+      .attr('transform', 'rotate(-45)');
+  }
+}

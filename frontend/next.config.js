@@ -3,7 +3,7 @@ const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
   output: 'standalone',
-  
+
   // Enable WebAssembly support
   webpack: (config, { isServer }) => {
     config.experiments = {
@@ -18,13 +18,7 @@ const nextConfig = {
       type: 'webassembly/async',
     });
 
-    // Optimize Three.js imports
-    if (!isServer) {
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        'three': 'three/build/three.module.js',
-      };
-    }
+
 
     return config;
   },
@@ -94,11 +88,10 @@ const nextConfig = {
   // Performance optimizations
   poweredByHeader: false,
   compress: true,
-  
+
   // Enable SWC plugins
   experimental: {
-    optimizeCss: true,
-    serverActions: true,
+    optimizeCss: false,
   },
 };
 
